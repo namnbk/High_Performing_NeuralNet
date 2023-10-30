@@ -44,21 +44,20 @@ std::istream& operator>>(std::istream& is, Matrix& matrix) {
     return is;
 }
 
-Matrix Matrix::dot(const Matrix& rhs) const {
+Matrix Matrix::dot(const Matrix& _rhs) const {
     // Ensure the dimensions are similar.
-    assert(front().size() == rhs.size());
+    assert(front().size() == _rhs.size());
     // Setup the result matrix
-    const auto mWidth = rhs.front().size(), width = front().size();
+    const auto mWidth = _rhs.front().size(), width = front().size();
     Matrix result(size(), mWidth);
+    // Transpose right-hand-sided matrix
+    const Matrix rhs = _rhs.transpose();
     // Do the actual matrix multiplication
     for (size_t row = 0; (row < size()); row++) {
         for (size_t col = 0; (col < mWidth); col++) {
-            Val sum = 0;
             for (size_t i = 0; (i < width); i++) {
-                sum += (*this)[row][i] * rhs[i][col];
+                result[row][col] += (*this)[row][i] * rhs[col][i];
             }
-            // Store the result in an appropriate entry
-            result[row][col] = sum;
         }
     }
     // Return the computed result
