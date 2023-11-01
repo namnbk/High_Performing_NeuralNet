@@ -53,12 +53,9 @@ Matrix Matrix::dot(const Matrix& rhs) const {
     // Do the actual matrix multiplication
     for (size_t row = 0; (row < size()); row++) {
         for (size_t col = 0; (col < mWidth); col++) {
-            Val sum = 0;
             for (size_t i = 0; (i < width); i++) {
-                sum += (*this)[row][i] * rhs[i][col];
+                result[row][col] += (*this)[row][i] * rhs[i][col];
             }
-            // Store the result in an appropriate entry
-            result[row][col] = sum;
         }
     }
     // Return the computed result
