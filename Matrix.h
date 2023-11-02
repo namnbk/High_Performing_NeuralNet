@@ -17,7 +17,7 @@
 using Val = double;
 
 /** Short cut to a 2-d vector double values to streamline the code */
-using TwoDVec = std::vector<std::vector<Val>>;
+using OneDVec = std::vector<Val>;
 
 /** A matrix class to perform basic matrix operations.
 
@@ -34,7 +34,7 @@ using TwoDVec = std::vector<std::vector<Val>>;
     
     </ul>
 */
-class Matrix : public TwoDVec {
+class Matrix : public OneDVec {
     /** Stream insertion operator to ease printing matrices
      *
      * This method prints the dimension of the matrix and then prints
@@ -89,14 +89,14 @@ public:
      *
      * \return Returns the height or number of rows in this matrix.
      */
-    int height() const { return size(); }
+    size_t height() const { return numberOfRows; }
 
     /**
      * Returns the width or number of columns in this matrix.
      *
      * \return Returns the width or number of columns in this matrix.
      */
-    int width() const { return (height() > 0) ? front().size() : 0; }
+    size_t width() const { return size() / numberOfRows; }
     
     /**
      * Creates a new matrix in which each value is obtained by
@@ -115,10 +115,8 @@ public:
         // in the new matrix
         Matrix result = *this;  // Initialize to current values.
         // Apply unary operation to each element in the result
-        for (auto& row : result) {
-            for (auto& val : row) {
-                val = operation(val);
-            }
+        for (auto& val : result) {
+            val = operation(val);
         }
         // The resulting matrix after applying specified operations.
         return result;
@@ -139,25 +137,23 @@ public:
     template<typename BinaryOp>
     Matrix apply(const Matrix& other, const BinaryOp& operation) const {
         // Check to ensure the number of rows are the same.
-        assert(size() == other.size());
+        assert(height() == other.height());
         // If the matrix is empty, then we have nothing to do.
         if (empty()) {
             return *this;  // return copy of empty matrix.
         }
         // Ensure the number of columns match.
-        assert(front().size() == other.front().size());
+        assert(width() == other.width());
         // Now apply the specified operation to each element and store it
         // in the new matrix
         Matrix result = *this;  // Initialize to current values.
         // Here we use index so that we can access the corresponding
         // element in the other matrix as well.
-        for (size_t row = 0; (row < size()); ++row) {
-            for (size_t col = 0; (col < (*this)[row].size()); ++col) {
-                // Recollect result is initialized to values of this
-                // matrix. So we use result to reduce the number of
-                // different values accessed.
-                result[row][col] = operation(result[row][col], other[row][col]);
-            }
+        for (size_t index = 0; (index < size()); ++index) {
+            // Recollect result is initialized to values of this
+            // matrix. So we use result to reduce the number of
+            // different values accessed.
+            result[index] = operation(result[index], other[index]);
         }
         // The resulting matrix after applying specified operations.
         return result;
@@ -246,6 +242,12 @@ public:
      * Returns the transpose of this matrix.
      */
     Matrix transpose() const;
+
+private:
+    /**
+     * The height of the matrix / number of rows
+    */
+    std::size_t numberOfRows;
 };
 
 
