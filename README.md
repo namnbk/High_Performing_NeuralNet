@@ -3,7 +3,7 @@ An high performance artificial Neural Network program that classifies handwritte
 
 ## Overview
 * Implemented a C++ version of a deep neural network that recognizes handwritten numbers on a Supercomnting Cluster
-* Trained with 50000 online images and tested among 10000 images on 30 epoches, achieving more than 50% accuracy 
+* Trained 50000 images and tested 10000 images on the local temporary storage, achieving more than 50% accuracy 
 * Shaved of CPU usage and optimized performance of the neuralnet classification program with the memory caching and SIMD parallelism techniques
   
 
