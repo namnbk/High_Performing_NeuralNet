@@ -15,6 +15,7 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <unordered_map>
 #include "NeuralNet.h"
 
 /**
@@ -23,10 +24,18 @@
  *
  * \param[in] path The path from where the PGM file is to be loaded.
  *
+ * \param[in] imgCaches The map acts as memory caches for loaded images
+ * 
  * \return A nx1 matrix with each row of the matrix corresponding to a
  * pixel in the image.
  */
-Matrix loadPGM(const std::string& path) {
+Matrix loadPGM(const std::string& path, 
+                std::unordered_map<std::string, Matrix>& imgCaches) {
+    // Checking for caches first
+    if (auto search = imgCaches.find(path); search != imgCaches.end()) {
+        return search->second;
+    }
+    // Otherwise, load the image path
     std::ifstream file(path);
     if (!file.good()) {
         throw std::runtime_error("Unable to read " + path);
@@ -43,8 +52,10 @@ Matrix loadPGM(const std::string& path) {
     Matrix img(width * height, 1);
     for (int i = 0; (i < width * height); i++) {
         file >> value;
-        img[i][0] = value / maxVal;
+        img[i] = value / maxVal;
     }
+    // Save to caches and return
+    imgCaches[path] = img;
     return img;
 }
 
@@ -68,13 +79,15 @@ Matrix getExpectedDigitOutput(const std::string& path) {
     // Now create the expected matrix with the just the value
     // corresponding to the label set to 1.0
     Matrix expected(10, 1, 0.0);
-    expected[label][0] = 1.0;  // Just label should be 1.0
+    expected[label * 1 + 0] = 1.0;  // Just label should be 1.0
     return expected;
 }
 
 /**
  * Helper method to use the first \c count number of files to train a
  * given neural network.
+ * 
+ * \param[in] imgCaches The map acts as memory caches for loaded images
  *
  * \param[in,out] net The neural network to be trainined.
  *
@@ -86,11 +99,12 @@ Matrix getExpectedDigitOutput(const std::string& path) {
  *
  * \param[in] count The number of files in this list ot be used.
  */
-void train(NeuralNet& net, const std::string& path,
+void train(std::unordered_map<std::string, Matrix>& imgCaches,
+           NeuralNet& net, const std::string& path,
            const std::vector<std::string>& fileNames,
            int count = 1e6) {
     for (const auto& imgName : fileNames) {
-        const Matrix img = loadPGM(path + "/" + imgName);
+        const Matrix img = loadPGM(path + "/" + imgName, imgCaches);
         const Matrix exp = getExpectedDigitOutput(imgName);
         net.learn(img, exp);
         if (count-- <= 0) {
@@ -102,6 +116,8 @@ void train(NeuralNet& net, const std::string& path,
 /**
  * The top-level method to train a given neural network used a list of
  * files from a given training set.
+ * 
+ * \param[in] imgCaches The map acts as memory caches for loaded images
  *
  * \param[in,out] net The neural network to be trained.
  *
@@ -114,7 +130,8 @@ void train(NeuralNet& net, const std::string& path,
  * to be used.  This method randomly shuffles this list before using
  * \c limit nunber of images for training the supplied \c net.
  */
-void train(NeuralNet& net, const std::string& path, const int limit = 1e6,
+void train(std::unordered_map<std::string, Matrix>& imgCaches, 
+           NeuralNet& net, const std::string& path, const int limit = 1e6,
            const std::string& imgListFile = "TrainingSetList.txt") {
     std::ifstream fileList(imgListFile);
     if (!fileList) {
@@ -133,7 +150,7 @@ void train(NeuralNet& net, const std::string& path, const int limit = 1e6,
     std::shuffle(fileNames.begin(), fileNames.end(),
                  std::default_random_engine());
     // Use the helper method to train 
-    train(net, path, fileNames, limit);
+    train(imgCaches, net, path, fileNames, limit);
 }
 
 /**
@@ -153,6 +170,7 @@ int maxElemIndex(const std::vector<Val>& vec) {
 /**
  * Helper method to determine how well a given neural network has
  * trained used a list of test images.
+ * \param[in] imgCaches The map acts as memory caches for loaded images
  *
  * \param[in] net The network to be used for classification.
  *
@@ -163,7 +181,8 @@ int maxElemIndex(const std::vector<Val>& vec) {
  * image-file-names to be used for assessing the effectiveness of the
  * supplied \c net.
  */
-void assess(NeuralNet& net, const std::string& path,
+void assess(std::unordered_map<std::string, Matrix>& imgCaches, 
+            NeuralNet& net, const std::string& path,
             const std::string& imgFileList = "TestingSetList.txt") {
     std::ifstream fileList2(imgFileList);
     if (!fileList2) {
@@ -173,7 +192,7 @@ void assess(NeuralNet& net, const std::string& path,
     // given given neural network.
     auto passCount = 0, totCount = 0;;
     for (std::string imgName; std::getline(fileList2, imgName); totCount++) {
-        const Matrix img = loadPGM(path + "/" + imgName);
+        const Matrix img = loadPGM(path + "/" + imgName, imgCaches);
         const Matrix exp = getExpectedDigitOutput(imgName);
         // Have our network classify the image.
         const Matrix res = net.classify(img);
@@ -182,8 +201,8 @@ void assess(NeuralNet& net, const std::string& path,
         // Find the maximum index positions in exp results to see if
         // they are the same. If they are it is a good
         // result. Otherwise, it is an error.
-        const int expIdx = maxElemIndex(exp.transpose()[0]);
-        const int resIdx = maxElemIndex(res.transpose()[0]);
+        const int expIdx = maxElemIndex(exp);
+        const int resIdx = maxElemIndex(res);
         if (expIdx == resIdx) {
             passCount++;
         }
@@ -228,6 +247,9 @@ int main(int argc, char *argv[]) {
     const std::string trainImgs = (argc > 4 ? argv[4] : "TrainingSetList.txt");
     const std::string testImgs  = (argc > 5 ? argv[5] : "TestingSetList.txt");
 
+    // Cache for image loading
+    std::unordered_map<std::string, Matrix> imgCaches;
+
     // Create the neural netowrk
     NeuralNet net({784, 30, 10});
     // Train it in at most 30 epochs.
@@ -235,8 +257,8 @@ int main(int argc, char *argv[]) {
         std::cout << "-- Epoch #" << i << " --\n";
         std::cout << "Training with " << imgCount << " images...\n";
         const auto startTime = std::chrono::high_resolution_clock::now();
-        train(net, argv[1], imgCount, trainImgs);
-        assess(net, argv[1], testImgs);
+        train(imgCaches, net, argv[1], imgCount, trainImgs);
+        assess(imgCaches, net, argv[1], testImgs);
         const auto endTime = std::chrono::high_resolution_clock::now();
         // Compute the timeelapsed for this epoch
         using namespace std::literals;
